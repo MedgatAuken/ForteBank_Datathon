@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Контроль кассовой дисциплины</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --card:#fff; --ink:#15181d; --muted:#666e7a; --line:#e2e5ea;
+    --ok:#0a7d44; --ok-bg:#e8f6ee; --bad:#b3261e; --bad-bg:#fdeceb; --accent:#1a56db;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --bg:#14161a; --card:#1c1f25; --ink:#e9ecf1; --muted:#9aa3b0; --line:#2a2f37;
+      --ok:#4ade80; --ok-bg:#10281c; --bad:#f87171; --bad-bg:#2b1414; --accent:#7aa2f7;
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font:15px/1.55 -apple-system,Segoe UI,Roboto,Arial,sans-serif}
+  .wrap{max-width:900px;margin:0 auto;padding:32px 16px 64px}
+  h1{font-size:22px;margin:0 0 4px}
+  .sub{color:var(--muted);font-size:13px;margin-bottom:24px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;
+        padding:20px;margin-bottom:16px}
+  label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
+  input[type=password],input[type=text]{width:100%;padding:9px 11px;border-radius:8px;
+    border:1px solid var(--line);background:var(--bg);color:var(--ink);font-size:14px}
+  #drop{border:2px dashed var(--line);border-radius:10px;padding:34px 16px;text-align:center;
+        cursor:pointer;color:var(--muted);margin-top:14px;transition:.15s}
+  #drop:hover,#drop.over{border-color:var(--accent);color:var(--ink)}
+  button{background:var(--accent);color:#fff;border:0;border-radius:8px;padding:10px 18px;
+         font-size:14px;cursor:pointer;margin-top:14px}
+  button:disabled{opacity:.5;cursor:default}
+  .bar{height:4px;background:var(--line);border-radius:3px;overflow:hidden;margin-top:14px}
+  .bar i{display:block;height:100%;width:30%;background:var(--accent);
+         animation:slide 1.1s infinite ease-in-out}
+  @keyframes slide{0%{margin-left:-30%}100%{margin-left:100%}}
+  .verdict{display:flex;align-items:center;gap:12px;font-size:17px;font-weight:600;
+           padding:16px;border-radius:10px}
+  .verdict.ok{background:var(--ok-bg);color:var(--ok)}
+  .verdict.bad{background:var(--bad-bg);color:var(--bad)}
+  .v{border:1px solid var(--line);border-radius:10px;padding:16px;margin-top:14px}
+  .vhead{display:flex;justify-content:space-between;gap:12px;align-items:baseline;flex-wrap:wrap}
+  .vtype{font-weight:600}
+  .tc{font-variant-numeric:tabular-nums;background:var(--bad-bg);color:var(--bad);
+      padding:3px 9px;border-radius:6px;font-size:13px;font-weight:600}
+  .desc{color:var(--ink);margin:10px 0}
+  .frames{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+  .frames figure{margin:0}
+  .frames img{height:190px;border-radius:7px;border:1px solid var(--line);display:block}
+  .frames figcaption{font-size:11px;color:var(--muted);text-align:center;margin-top:4px;
+      font-variant-numeric:tabular-nums}
+  .insp{margin-top:14px;border-top:1px dashed var(--line);padding-top:12px}
+  .insp h4{margin:0 0 3px;font-size:13px;font-weight:600}
+  .insp .hint{color:var(--muted);font-size:12px;margin-bottom:10px}
+  .zones{display:flex;gap:10px;flex-wrap:wrap}
+  .zone{flex:1 1 180px;min-width:150px}
+  /* одинаковая высота плиток: вырезы зон имеют разные пропорции,
+     contain показывает область целиком, не пряча деталей */
+  .zone img{width:100%;height:210px;object-fit:contain;border-radius:7px;
+            border:1px solid var(--line);display:block;cursor:zoom-in;background:var(--bg)}
+  .zone div{font-size:11px;color:var(--muted);margin-top:5px;line-height:1.35;
+            min-height:30px}
+  dialog{border:0;padding:0;background:transparent;max-width:96vw;max-height:96vh}
+  dialog::backdrop{background:rgba(0,0,0,.8)}
+  dialog img{max-width:96vw;max-height:92vh;border-radius:8px;display:block}
+  .rule{border-left:3px solid var(--accent);padding:8px 0 8px 12px;margin-top:12px;
+        font-size:13px;color:var(--muted)}
+  .rule q{display:block;font-style:italic;margin:4px 0}
+  .rule a{color:var(--accent)}
+  .warn{background:#fff6e0;border:1px solid #f0d99b;color:#7a5c00;border-radius:8px;
+        padding:10px 12px;font-size:13px;margin-top:12px}
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .warn{
+        background:#2a2410;border-color:#5a4a1a;color:#e8c766}}
+  .err{color:var(--bad);font-size:14px;margin-top:12px}
+  .note{color:var(--muted);font-size:12px;margin-top:18px;border-top:1px solid var(--line);
+        padding-top:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Контроль кассовой дисциплины</h1>
+  <div class="sub">Локальный анализ видеозаписи. Результат — подсказка для проверки человеком, не окончательное заключение.</div>
+
+  <div class="card">
+    <label for="key">API-ключ</label>
+    <input id="key" type="password" placeholder="X-API-Key" autocomplete="off">
+    <div id="drop">Перетащите <b>.mov</b> сюда или нажмите, чтобы выбрать</div>
+    <input id="file" type="file" accept=".mov,.mp4,.m4v" hidden>
+    <button id="go" disabled>Анализировать</button>
+    <div id="status"></div>
+  </div>
+
+  <div id="out"></div>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const keyEl = $("#key"), fileEl = $("#file"), drop = $("#drop"),
+      go = $("#go"), status = $("#status"), out = $("#out");
+
+keyEl.value = localStorage.getItem("fb_key") || "";
+keyEl.addEventListener("input", () => localStorage.setItem("fb_key", keyEl.value));
+
+let picked = null;
+const pick = f => { picked = f; drop.innerHTML = "📄 <b>" + f.name + "</b> · " +
+  (f.size/1048576).toFixed(1) + " МБ"; go.disabled = false; };
+
+drop.onclick = () => fileEl.click();
+fileEl.onchange = e => e.target.files[0] && pick(e.target.files[0]);
+drop.ondragover = e => { e.preventDefault(); drop.classList.add("over"); };
+drop.ondragleave = () => drop.classList.remove("over");
+drop.ondrop = e => { e.preventDefault(); drop.classList.remove("over");
+  e.dataTransfer.files[0] && pick(e.dataTransfer.files[0]); };
+
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c =>
+  ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+const fmt = s => {
+  const m = Math.floor(s/60), r = (s%60).toFixed(1).padStart(4,"0");
+  return m > 0 ? `${m}:${r}` : `${(+s).toFixed(1)} с`;
+};
+
+go.onclick = async () => {
+  if (!picked) return;
+  const key = keyEl.value.trim();
+  out.innerHTML = ""; go.disabled = true;
+  status.innerHTML = '<div class="bar"><i></i></div>';
+
+  try {
+    const fd = new FormData(); fd.append("file", picked);
+    const r = await fetch("/api/v1/analyze", {
+      method: "POST", headers: {"X-API-Key": key}, body: fd });
+    if (!r.ok) throw new Error((await r.json().catch(()=>({}))).detail || ("HTTP " + r.status));
+    const { job_id } = await r.json();
+
+    const t0 = Date.now();
+    while (true) {
+      await new Promise(r => setTimeout(r, 1500));
+      const jr = await fetch("/api/v1/jobs/" + job_id, { headers: {"X-API-Key": key} });
+      if (!jr.ok) throw new Error("HTTP " + jr.status);
+      const j = await jr.json();
+      const el = ((Date.now()-t0)/1000).toFixed(0);
+      if (j.status === "processing") {
+        status.innerHTML = `<div class="bar"><i></i></div>
+          <div class="sub" style="margin:8px 0 0">Обработка… ${el} с</div>`;
+        continue;
+      }
+      status.innerHTML = "";
+      if (j.status === "failed") { out.innerHTML =
+        `<div class="card err">Ошибка обработки: ${esc(j.error||"неизвестно")}</div>`; break; }
+      render(j); break;
+    }
+  } catch (e) {
+    status.innerHTML = "";
+    out.innerHTML = `<div class="card err">${esc(e.message)}</div>`;
+  }
+  go.disabled = false;
+};
+
+function zoom(src){
+  let d = document.getElementById("lb");
+  if (!d) { d = document.createElement("dialog"); d.id = "lb";
+    d.onclick = () => d.close(); document.body.appendChild(d); }
+  d.innerHTML = `<img src="${src}" alt="увеличенный кадр">`;
+  d.showModal();
+}
+
+function render(j) {
+  const bad = j.verdict === "violation";
+  let h = `<div class="card"><div class="verdict ${bad?'bad':'ok'}">
+    <span>${bad?"⚠":"✓"}</span>
+    <span>${bad?"Обнаружены признаки возможных нарушений":"Нарушение не обнаружено"}</span>
+  </div>`;
+
+  if (bad) h += `<div class="sub" style="margin:10px 0 0">
+    Сервис указывает фрагменты для проверки. Окончательное решение принимает человек.</div>`;
+  if (j.truncated) h += `<div class="warn">Обработка остановлена по лимиту времени.
+    Показано то, что удалось найти — результат может быть неполным.</div>`;
+  if (j.processing_sec != null)
+    h += `<div class="note">Время обработки: ${j.processing_sec} с · задача ${esc(j.job_id)}</div>`;
+
+  for (const v of (j.violations || [])) {
+    h += `<div class="v"><div class="vhead">
+        <span class="vtype">${esc(v.type)}</span>
+        <span class="tc">${fmt(v.timecode_sec)}</span></div>
+      <div class="desc">${esc(v.description)}</div>`;
+
+    if (v.evidence_frames?.length) {
+      h += `<div class="frames">` + v.evidence_frames.map(f =>
+        `<figure><img src="data:image/jpeg;base64,${f.image_base64}" alt="кадр-доказательство">
+         <figcaption>${fmt(f.timestamp_sec)}</figcaption></figure>`).join("") + `</div>`;
+    }
+
+    if (v.inspection_frames?.length) {
+      h += `<div class="insp">
+        <h4>Проверьте вручную</h4>
+        <div class="hint">Признаки нарушений на этой записи мельче разрешения видео,
+          поэтому решение за вами. Ниже — увеличенные зоны на момент события.</div>
+        <div class="zones">` + v.inspection_frames.map(f =>
+        `<div class="zone">
+           <img src="data:image/jpeg;base64,${f.image_base64}" alt="${esc(f.label)}"
+                onclick="zoom(this.src)">
+           <div>${esc(f.label)}</div>
+         </div>`).join("") + `</div></div>`;
+    }
+
+    if (v.rule) {
+      const r = v.rule;
+      h += `<div class="rule"><b>${esc(r.title)}</b>
+        <q>${esc(r.quote || "")}</q>
+        ${esc(r.document)}, ${esc(r.clause)}
+        ${r.url ? ` · <a href="${esc(r.url)}" target="_blank" rel="noopener">источник</a>` : ""}
+        ${r.verified === false ? ' · <span style="color:var(--bad)">пункт не сверен</span>' : ""}
+      </div>`;
+    }
+    h += `</div>`;
+  }
+  out.innerHTML = h + `</div>`;
+}
+</script>
+</body>
+</html>

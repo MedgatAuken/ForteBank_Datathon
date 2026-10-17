@@ -1,0 +1,12 @@
+# evalkit: только stdlib, зависимостей нет
+# пайплайн (Шаг 1+):
+fastapi>=0.115
+uvicorn[standard]>=0.30
+python-multipart>=0.0.9
+opencv-python-headless>=4.10
+numpy>=1.26
+pyyaml>=6.0
+transformers>=4.40
+sentencepiece
+pillow
+scikit-learn>=1.5
