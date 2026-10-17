@@ -114,6 +114,15 @@ drop.ondragleave = () => drop.classList.remove("over");
 drop.ondrop = e => { e.preventDefault(); drop.classList.remove("over");
   e.dataTransfer.files[0] && pick(e.dataTransfer.files[0]); };
 
+// Туннели показывают браузерам страницу-предупреждение вместо ответа API
+// (localtunnel отвечает HTTP 511, ngrok — HTML-заглушкой). Эти заголовки их
+// отключают. Вне туннеля они безвредны — сервер их игнорирует.
+const apiHeaders = key => ({
+  "X-API-Key": key,
+  "Bypass-Tunnel-Reminder": "true",
+  "ngrok-skip-browser-warning": "true",
+});
+
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c =>
   ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 
@@ -131,14 +140,17 @@ go.onclick = async () => {
   try {
     const fd = new FormData(); fd.append("file", picked);
     const r = await fetch("/api/v1/analyze", {
-      method: "POST", headers: {"X-API-Key": key}, body: fd });
+      method: "POST", headers: apiHeaders(key), body: fd });
+    if (r.status === 511) throw new Error(
+      "Туннель localtunnel показал страницу-перехватчик. Откройте адрес сервиса " +
+      "в новой вкладке, нажмите «Click to Continue», затем повторите анализ.");
     if (!r.ok) throw new Error((await r.json().catch(()=>({}))).detail || ("HTTP " + r.status));
     const { job_id } = await r.json();
 
     const t0 = Date.now();
     while (true) {
       await new Promise(r => setTimeout(r, 1500));
-      const jr = await fetch("/api/v1/jobs/" + job_id, { headers: {"X-API-Key": key} });
+      const jr = await fetch("/api/v1/jobs/" + job_id, { headers: apiHeaders(key) });
       if (!jr.ok) throw new Error("HTTP " + jr.status);
       const j = await jr.json();
       const el = ((Date.now()-t0)/1000).toFixed(0);
